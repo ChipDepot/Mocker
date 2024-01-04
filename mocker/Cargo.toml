@@ -1,0 +1,18 @@
+[package]
+name = "mocker"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.79"
+chrono = { version = "0.4.31", features = ["serde"] }
+env_logger = "0.10.1"
+log = "0.4.20"
+paho-mqtt = "0.12.3"
+rand = "0.8.5"
+serde = "1.0.194"
+serde_json = "1.0.110"
+starduck = "0.1"
+uuid = { version = "1.6.1", features = ["serde", "v4"] }
