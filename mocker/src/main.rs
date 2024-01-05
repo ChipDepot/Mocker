@@ -36,6 +36,9 @@ const DEVICE_MESSAGES: &str = "device-messages";
 const INTERVAL: &str = "interval";
 const DEFAULT_INTERVAL: Duration = Duration::from_secs(60);
 
+const IP: &str = "ip";
+const DEFAULT_IP: &str = "localhost";
+
 const SEPARATOR: char = ':';
 
 enum ValueType {
@@ -210,7 +213,12 @@ fn build_mqtt_client(args: &HashMap<String, String>) -> Client {
         }
     };
 
-    let url = format!("tcp://localhost:{port}");
+    let ip = env::var(IP).unwrap_or_else(|_| {
+        warn!("Missing env var '{IP}', defaulting to '{DEFAULT_IP}'");
+        DEFAULT_IP.to_owned()
+    });
+
+    let url = format!("tcp://{ip}:{port}");
 
     Client::new(url)
         .with_context(|| "Could not build MQTT client")
