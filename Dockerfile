@@ -13,18 +13,20 @@ COPY ./mocker/src ./src
 # Install cmake
 RUN apt-get update
 RUN apt-get install -y cmake
-RUN cmake --version
 
 # Build the app with the release flag
 RUN cargo build --release
 
-# Create a ligheter image using debian
-FROM debian:buster-slim
+# Create a lighter image using debian
+FROM ubuntu:latest
 
+RUN apt-get update && apt-get upgrade -y
+RUN apt-get install -y openssl
+RUN apt-get install -y build-essential
 
 # Copy the bin
-COPY --from=builder /mocker/target/release/mocker /app
+COPY --from=builder /mocker/target/release/mocker mocker
 
 # Run mocker
-CMD [ "/app/mocker" ]
+ENTRYPOINT [ "./mocker" ]
 
