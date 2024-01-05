@@ -1,22 +1,20 @@
 use std::collections::HashMap;
 use std::env;
 use std::str::FromStr;
+use std::time::Duration;
 
 #[macro_use]
 extern crate log;
 
 use anyhow::bail;
-use anyhow::Context;
-use anyhow::Result;
+use anyhow::{Context, Result};
+use chrono::Utc;
+use paho_mqtt::{Client, ConnectOptionsBuilder, MessageBuilder};
 use rand::Rng;
-use serde::Deserialize;
-use serde::Serialize;
+use uuid::Uuid;
 
 use starduck::SCMessage;
 use starduck::WithOffset;
-
-use chrono::Utc;
-use uuid::Uuid;
 
 const TOPIC: &str = "topic";
 const DEFAULT_TOPIC: &str = "temperatura";
@@ -30,9 +28,16 @@ const DEFAULT_STATUS: &str = "OK";
 const ALERT: &str = "alert";
 const DEFAULT_ALERT: bool = false;
 
+const MQTT_PORT: &str = "mqtt_port";
+const DEFAULT_MQTT_PORT: i32 = 1883;
+
+const DEVICE_MESSAGES: &str = "device-messages";
+
+const INTERVAL: &str = "interval";
+const DEFAULT_INTERVAL: Duration = Duration::from_secs(60);
+
 const SEPARATOR: char = ':';
 
-#[derive(Serialize, Deserialize)]
 enum ValueType {
     Random(i32, i32),
     Fixed(i32),
@@ -117,7 +122,7 @@ fn build_message(device_uuid: Uuid, value_map: &mut HashMap<String, String>) -> 
         Some(b) => match b.parse() {
             Ok(k) => k,
             Err(_) => {
-                warn!("Invalid bool `{b}` defaulting to '{DEFAULT_ALERT}'");
+                warn!("Invalid bool `{b}` as '{ALERT}' defaulting to '{DEFAULT_ALERT}'");
                 DEFAULT_ALERT
             }
         },
@@ -166,7 +171,7 @@ fn process_fixed_values(message: &mut SCMessage, args: &mut HashMap<String, Stri
     }
 }
 
-fn process_random_values(message: SCMessage, args: &mut HashMap<String, String>) -> SCMessage {
+fn process_random_values(message: &SCMessage, args: &mut HashMap<String, String>) -> SCMessage {
     let result = args
         .iter()
         .filter(|&(_, value)| value.contains("random"))
@@ -190,14 +195,82 @@ fn process_random_values(message: SCMessage, args: &mut HashMap<String, String>)
     new_message
 }
 
+fn build_mqtt_client(args: &HashMap<String, String>) -> Client {
+    let port = match args.get(MQTT_PORT) {
+        Some(k) => match k.parse() {
+            Ok(p) => p,
+            Err(_) => {
+                warn!("Invalid '{k}' as '{MQTT_PORT}' in args. Defaulting to port '{DEFAULT_MQTT_PORT}'");
+                DEFAULT_MQTT_PORT
+            }
+        },
+        None => {
+            warn!("Missing '{MQTT_PORT}' in args using default port '{DEFAULT_MQTT_PORT}'");
+            DEFAULT_MQTT_PORT
+        }
+    };
+
+    let url = format!("tcp://localhost:{port}");
+
+    Client::new(url)
+        .with_context(|| "Could not build MQTT client")
+        .unwrap()
+}
+
+fn build_duration(args: &HashMap<String, String>) -> Duration {
+    match args.get(INTERVAL) {
+        Some(dur) => match dur.parse::<u64>() {
+            Ok(k) => Duration::from_secs(k),
+            Err(_) => {
+                warn!("Invalid '{dur}' as '{INTERVAL}' in args. Defaulting to port '{DEFAULT_INTERVAL:?}'");
+                DEFAULT_INTERVAL
+            }
+        },
+        None => {
+            warn!("Missing '{INTERVAL}' in args using default interval '{DEFAULT_INTERVAL:?}'");
+            DEFAULT_INTERVAL
+        }
+    }
+}
+
 fn main() {
     // Start the logger and load the env variables
     env_logger::init();
 
     let mut args = process_args().unwrap();
-    let mut message = build_message(Uuid::new_v4(), &mut args);
+    let mut base_scmessage = build_message(Uuid::new_v4(), &mut args);
 
-    process_fixed_values(&mut message, &mut args);
+    process_fixed_values(&mut base_scmessage, &mut args);
 
-    println!("{}", process_random_values(message, &mut args));
+    let cli = build_mqtt_client(&args);
+
+    let conn_opts = ConnectOptionsBuilder::new().clean_session(true).finalize();
+
+    if let Err(e) = cli.connect(conn_opts) {
+        panic!("Unable to connect: {:?}", e);
+        // std::process::exit(-1);
+    }
+
+    let dur = build_duration(&args);
+
+    loop {
+        let mut scmessage = process_random_values(&base_scmessage, &mut args);
+        let now = Utc::now_with_offset();
+
+        scmessage.timestamp = now;
+
+        let message = MessageBuilder::new()
+            .topic(DEVICE_MESSAGES)
+            .payload(scmessage.to_string())
+            .finalize();
+
+        if let Err(e) = cli.publish(message) {
+            error!("Could not publish message: {}", e);
+            continue;
+        }
+
+        info!("Published message at {}", now);
+
+        std::thread::sleep(dur)
+    }
 }
