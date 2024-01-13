@@ -1,3 +1,4 @@
+mod endpoints;
 mod message;
 
 use std::net::SocketAddr;
@@ -27,6 +28,7 @@ async fn main() {
     tokio::spawn(async move { message::messenger(base_scmessage, dur, &mut args).await });
 
     let app = Router::new()
+        .nest("/update", endpoints::router())
         .layer(Extension(axum_base))
         .layer(Extension(axum_dur));
 
