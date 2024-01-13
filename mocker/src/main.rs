@@ -33,6 +33,8 @@ const DEFAULT_MQTT_PORT: i32 = 1883;
 
 const DEVICE_MESSAGES: &str = "device-messages";
 
+const DEVICE_UUID: &str = "device_uuid";
+
 const INTERVAL: &str = "interval";
 const DEFAULT_INTERVAL: Duration = Duration::from_secs(60);
 
@@ -245,8 +247,15 @@ fn main() {
     // Start the logger and load the env variables
     env_logger::init();
 
+    let device_uuid = env::var(DEVICE_UUID)
+        .with_context(|| format!("Missing {DEVICE_UUID} in env vars"))
+        .unwrap()
+        .parse::<Uuid>()
+        .with_context(|| format!("Could not parse {DEVICE_UUID}"))
+        .unwrap();
+
     let mut args = process_args().unwrap();
-    let mut base_scmessage = build_message(Uuid::new_v4(), &mut args);
+    let mut base_scmessage = build_message(device_uuid, &mut args);
 
     process_fixed_values(&mut base_scmessage, &mut args);
 
