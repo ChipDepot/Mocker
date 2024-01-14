@@ -22,7 +22,7 @@ const DEFAULT_ALERT: bool = false;
 const MQTT_PORT: &str = "mqtt_port";
 const DEFAULT_MQTT_PORT: i32 = 1883;
 
-const DEVICE_UUID: &str = "DEVICE_UUID";
+const DEVICE_UUID: &str = "device_uuid";
 
 const INTERVAL: &str = "interval";
 const DEFAULT_INTERVAL: Duration = Duration::from_secs(60);
