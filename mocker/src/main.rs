@@ -35,7 +35,8 @@ async fn main() {
     tokio::spawn(async move { message::messenger(base_scmessage, dur, arc_args).await });
 
     let app = Router::new()
-        .nest("/update", endpoints::router())
+        .nest("/update", endpoints::updater_router())
+        .nest("/get", endpoints::getter_router())
         .layer(Extension(axum_base))
         .layer(Extension(axum_args))
         .layer(Extension(axum_dur));
