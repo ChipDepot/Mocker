@@ -1,40 +1,49 @@
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use axum::extract::ConnectInfo;
 use axum::http::{Method, StatusCode};
 use axum::response::{IntoResponse, Response};
-use axum::{Extension, Json, Router};
+use axum::{Extension, Json};
 
-use chrono::Duration;
-use serde_json::Value;
 use starduck::SCMessage;
 
 pub async fn update_interval(
     method: Method,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Extension(duration): Extension<Arc<Mutex<Duration>>>,
-    Json(new_dur): Json<std::time::Duration>,
+    Json(new_dur): Json<Duration>,
 ) -> Response {
     info!("{method} from {addr}");
 
-    match (duration.lock(), chrono::Duration::from_std(new_dur)) {
-        (Ok(mut guard), Ok(dur)) => {
+    match (duration.lock(), new_dur) {
+        (Ok(mut guard), dur) => {
             *guard = dur;
             (StatusCode::OK).into_response()
         }
-        (_, Err(_)) => (StatusCode::BAD_REQUEST).into_response(),
         (Err(_), _) => (StatusCode::INTERNAL_SERVER_ERROR).into_response(),
     }
 }
 
-pub async fn update_topic(
+pub async fn update_message(
     method: Method,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
-    Extension(message): Extension<Arc<Mutex<SCMessage>>>,
-    Json(value): Json<Value>,
+    Extension(_message): Extension<Arc<Mutex<SCMessage>>>,
+    Json(_new_message): Json<SCMessage>,
 ) -> Response {
     info!("{method} from {addr}");
 
-    (StatusCode::OK).into_response()
+    (StatusCode::NOT_IMPLEMENTED).into_response()
+}
+
+pub async fn update_args(
+    method: Method,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    Extension(_message): Extension<Arc<Mutex<SCMessage>>>,
+    Json(_new_message): Json<Vec<String>>,
+) -> Response {
+    info!("{method} from {addr}");
+
+    (StatusCode::NOT_IMPLEMENTED).into_response()
 }

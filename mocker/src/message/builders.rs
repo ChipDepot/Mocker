@@ -7,8 +7,6 @@ use paho_mqtt::Client;
 use starduck::SCMessage;
 use starduck::WithOffset;
 
-use super::process_fixed_values;
-
 const TOPIC: &str = "topic";
 const DEFAULT_TOPIC: &str = "temperatura";
 
@@ -24,7 +22,7 @@ const DEFAULT_ALERT: bool = false;
 const MQTT_PORT: &str = "mqtt_port";
 const DEFAULT_MQTT_PORT: i32 = 1883;
 
-const DEVICE_UUID: &str = "device_uuid";
+const DEVICE_UUID: &str = "DEVICE_UUID";
 
 const INTERVAL: &str = "interval";
 const DEFAULT_INTERVAL: Duration = Duration::from_secs(60);
@@ -99,7 +97,7 @@ pub fn build_message(value_map: &mut HashMap<String, String>) -> SCMessage {
         .with_context(|| format!("Could not parse {DEVICE_UUID}"))
         .unwrap();
 
-    let mut base_scmessage = SCMessage {
+    let base_scmessage = SCMessage {
         topic,
         device_uuid,
         timestamp,
@@ -107,8 +105,6 @@ pub fn build_message(value_map: &mut HashMap<String, String>) -> SCMessage {
         alert,
         status,
     };
-
-    process_fixed_values(&mut base_scmessage, value_map);
 
     base_scmessage
 }

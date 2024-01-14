@@ -17,19 +17,27 @@ async fn main() {
     // Start the logger and load the env variables
     env_logger::init();
 
-    let mut args = message::process_args().unwrap();
+    let args = message::process_args().unwrap();
+    let arc_args = Arc::new(Mutex::new(args));
+    let axum_args = Arc::clone(&arc_args);
 
-    let base_scmessage = Arc::new(Mutex::new(message::build_message(&mut args)));
+    let base_scmessage = Arc::new(Mutex::new(message::build_message(
+        &mut arc_args.lock().unwrap(),
+    )));
     let axum_base = Arc::clone(&base_scmessage);
-    let dur = Arc::new(Mutex::new(message::build_duration(&args)));
+
+    let dur = Arc::new(Mutex::new(message::build_duration(
+        &mut arc_args.lock().unwrap(),
+    )));
     let axum_dur = Arc::clone(&dur);
 
     // Spawn messenger in the background
-    tokio::spawn(async move { message::messenger(base_scmessage, dur, &mut args).await });
+    tokio::spawn(async move { message::messenger(base_scmessage, dur, arc_args).await });
 
     let app = Router::new()
         .nest("/update", endpoints::router())
         .layer(Extension(axum_base))
+        .layer(Extension(axum_args))
         .layer(Extension(axum_dur));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], PORT));

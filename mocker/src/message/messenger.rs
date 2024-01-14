@@ -15,21 +15,23 @@ const DEVICE_MESSAGES: &str = "device-messages";
 pub async fn messenger(
     base_scmessage: Arc<Mutex<SCMessage>>,
     interval: Arc<Mutex<Duration>>,
-    args: &mut HashMap<String, String>,
+    args: Arc<Mutex<HashMap<String, String>>>,
 ) {
-    let cli = super::build_mqtt_client(&args);
+    let cli = super::build_mqtt_client(&args.lock().unwrap());
     let conn_opts = ConnectOptionsBuilder::new().clean_session(true).finalize();
 
     if let Err(e) = cli.connect(conn_opts) {
         panic!("Unable to connect: {:?}", e);
-        // std::process::exit(-1);
     }
 
     loop {
-        let guard = base_scmessage.lock().unwrap().clone();
+        let mut arg = args.lock().unwrap().clone();
+        let msg = base_scmessage.lock().unwrap().clone();
         let dur = interval.lock().unwrap().clone();
 
-        let mut scmessage = message::process_random_values(&guard, args);
+        let mut scmessage = message::process_random_values(&msg, &mut arg);
+        message::process_fixed_values(&mut scmessage, &mut arg);
+
         let now = Utc::now_with_offset();
 
         scmessage.timestamp = now;
